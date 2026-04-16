@@ -1,53 +1,56 @@
 "use client";
+// Refreshed by Gemini to clear TS cache
 import { useState, useEffect } from "react";
-import { Plus, Megaphone, ChevronDown } from "lucide-react";
-import CampaignCard from "@/components/campanhas/CampaignCard";
-import { CampaignAPI } from "@/lib/api";
-import type { Campaign } from "@/lib/mockData";
+import { Plus, Megaphone } from "lucide-react";
+import CampanhaCard from "@/app/components/CampanhaCard";
+import { CampanhaAPI } from "@/lib/api";
+import type { Campanha } from "@/lib/mockData";
 
-const tabs = ["Ativa", "Pausada", "Encerrada", "Todas"];
+const tabs = ["ativa", "pausada", "encerrada", "todas"];
 
 const emptyForm = {
-  name: "", description: "", discount_percent: "",
-  status: "Ativa" as Campaign["status"],
-  start_date: "", end_date: "",
+  nome: "",
+  descricao: "",
+  desconto_percentual: "",
+  status: "ativa" as Campanha["status"],
+  data_inicio: "",
+  data_fim: "",
 };
 
 export default function Campanhas() {
-  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [campanhas, setCampanhas] = useState<Campanha[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [tab, setTab] = useState("Ativa");
+  const [tab, setTab] = useState("ativa");
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => { loadCampaigns(); }, []);
+  useEffect(() => { loadCampanhas(); }, []);
 
-  async function loadCampaigns() {
-    const data = await CampaignAPI.list();
-    setCampaigns(data);
+  async function loadCampanhas() {
+    const data = await CampanhaAPI.list();
+    setCampanhas(data);
     setLoading(false);
   }
 
   async function handleCreate() {
-    if (!form.name || !form.discount_percent) return;
+    if (!form.nome || !form.desconto_percentual) return;
     setSaving(true);
-    await CampaignAPI.create({
-      name: form.name, description: form.description,
-      discount_percent: parseFloat(form.discount_percent) || 0,
+    await CampanhaAPI.create({
+      nome: form.nome,
+      descricao: form.descricao,
+      desconto_percentual: parseFloat(form.desconto_percentual) || 0,
       status: form.status,
-      start_date: form.start_date || "",
-      end_date: form.end_date || "",
-      participants_count: 0,
-      exams: [],
+      data_inicio: form.data_inicio || new Date().toISOString().split("T")[0],
+      data_fim: form.data_fim || new Date().toISOString().split("T")[0],
     });
     setDialogOpen(false);
     setForm(emptyForm);
     setSaving(false);
-    loadCampaigns();
+    loadCampanhas();
   }
 
-  const filtered = campaigns.filter(c => tab === "Todas" || c.status === tab);
+  const filtered = campanhas.filter(c => tab === "todas" || c.status === tab);
 
   if (loading) {
     return (
@@ -65,13 +68,7 @@ export default function Campanhas() {
           <h1 style={{ fontSize: 28, fontWeight: 700, color: "var(--foreground)" }}>Campanhas</h1>
           <p style={{ color: "var(--muted)", marginTop: 4 }}>Gerencie promoções e descontos</p>
         </div>
-        <button onClick={() => setDialogOpen(true)} style={{
-          display: "flex", alignItems: "center", gap: 8,
-          padding: "10px 18px", borderRadius: "var(--radius-sm)",
-          background: "var(--primary)", color: "#fff",
-          border: "none", cursor: "pointer", fontWeight: 600, fontSize: 14,
-          boxShadow: "var(--shadow-sm)",
-        }}>
+        <button onClick={() => setDialogOpen(true)} style={btnPrimaryWithIcon}>
           <Plus size={16} /> Nova Campanha
         </button>
       </div>
@@ -94,12 +91,12 @@ export default function Campanhas() {
             boxShadow: tab === t ? "var(--shadow-sm)" : "none",
             transition: "all 0.15s",
           }}>
-            {t === "Ativa" ? "Ativas" : t === "Pausada" ? "Pausadas" : t === "Encerrada" ? "Encerradas" : "Todas"}
+            {t.charAt(0).toUpperCase() + t.slice(1)}
           </button>
         ))}
       </div>
 
-      {/* Campaign grid */}
+      {/* Campanha grid */}
       {filtered.length === 0 ? (
         <div style={{
           background: "var(--card)", border: "1px solid var(--border)",
@@ -110,7 +107,7 @@ export default function Campanhas() {
         </div>
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(420px, 1fr))", gap: 16 }}>
-          {filtered.map(c => <CampaignCard key={c.id} campaign={c} />)}
+          {filtered.map(c => <CampanhaCard key={c.id} campanha={c} />)}
         </div>
       )}
 
@@ -129,30 +126,30 @@ export default function Campanhas() {
             <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 24 }}>Criar Nova Campanha</h2>
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               <Field label="Nome da Campanha">
-                <input placeholder="Ex: Promoção de Inverno" value={form.name} onChange={e => setForm({...form, name: e.target.value})} style={inputStyle} />
+                <input placeholder="Ex: Promoção de Inverno" value={form.nome} onChange={e => setForm({ ...form, nome: e.target.value })} style={inputStyle} />
               </Field>
               <Field label="Descrição">
-                <input value={form.description} onChange={e => setForm({...form, description: e.target.value})} style={inputStyle} />
+                <input value={form.descricao} onChange={e => setForm({ ...form, descricao: e.target.value })} style={inputStyle} />
               </Field>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                 <Field label="Desconto (%)">
-                  <input type="number" value={form.discount_percent} onChange={e => setForm({...form, discount_percent: e.target.value})} style={inputStyle} />
+                  <input type="number" value={form.desconto_percentual} onChange={e => setForm({ ...form, desconto_percentual: e.target.value })} style={inputStyle} />
                 </Field>
                 <Field label="Status">
-                  <select value={form.status} onChange={e => setForm({...form, status: e.target.value as Campaign["status"]})} style={inputStyle}>
-                    <option value="Ativa">Ativa</option>
-                    <option value="Pausada">Pausada</option>
-                    <option value="Encerrada">Encerrada</option>
+                  <select value={form.status} onChange={e => setForm({ ...form, status: e.target.value as Campanha["status"] })} style={inputStyle}>
+                    <option value="ativa">Ativa</option>
+                    <option value="pausada">Pausada</option>
+                    <option value="encerrada">Encerrada</option>
                   </select>
                 </Field>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                <Field label="Data Início"><input type="date" value={form.start_date} onChange={e => setForm({...form, start_date: e.target.value})} style={inputStyle} /></Field>
-                <Field label="Data Fim"><input type="date" value={form.end_date} onChange={e => setForm({...form, end_date: e.target.value})} style={inputStyle} /></Field>
+                <Field label="Data Início"><input type="date" value={form.data_inicio} onChange={e => setForm({ ...form, data_inicio: e.target.value })} style={inputStyle} /></Field>
+                <Field label="Data Fim"><input type="date" value={form.data_fim} onChange={e => setForm({ ...form, data_fim: e.target.value })} style={inputStyle} /></Field>
               </div>
               <div style={{ display: "flex", gap: 10, marginTop: 8 }}>
                 <button onClick={() => setDialogOpen(false)} style={{ ...btnSecondary, flex: 1 }}>Cancelar</button>
-                <button onClick={handleCreate} disabled={!form.name || !form.discount_percent || saving} style={{ ...btnPrimary, flex: 1, opacity: (!form.name || !form.discount_percent) ? 0.5 : 1 }}>
+                <button onClick={handleCreate} disabled={!form.nome || !form.desconto_percentual || saving} style={{ ...btnPrimary, flex: 1, opacity: (!form.nome || !form.desconto_percentual) ? 0.5 : 1 }}>
                   {saving ? "Salvando..." : "Criar Campanha"}
                 </button>
               </div>
@@ -182,6 +179,11 @@ const btnPrimary: React.CSSProperties = {
   padding: "10px 18px", borderRadius: "var(--radius-sm)",
   background: "var(--primary)", color: "#fff",
   border: "none", cursor: "pointer", fontWeight: 600, fontSize: 14,
+};
+const btnPrimaryWithIcon: React.CSSProperties = {
+  ...btnPrimary,
+  display: "flex", alignItems: "center", gap: 8,
+  boxShadow: "var(--shadow-sm)",
 };
 const btnSecondary: React.CSSProperties = {
   padding: "10px 18px", borderRadius: "var(--radius-sm)",

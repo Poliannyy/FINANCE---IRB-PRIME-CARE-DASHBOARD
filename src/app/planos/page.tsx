@@ -1,29 +1,29 @@
 "use client";
 import { useState, useEffect, useMemo } from "react";
 import { Search, Shield, Star, Crown, Gem } from "lucide-react";
-import { ExamAPI } from "@/lib/api";
-import type { Exam } from "@/lib/mockData";
+import { ExameAPI } from "@/lib/api";
+import type { Exame } from "@/lib/mockData";
 
 const plans = [
-  { key: "price_particular",      name: "IRB Particular",   icon: Shield, description: "Atendimento particular sem plano",     color: "#2563eb", bg: "#eff6ff" },
-  { key: "price_prime_plus",      name: "Prime Plus",       icon: Star,   description: "Plano básico com descontos",           color: "#d97706", bg: "#fffbeb" },
-  { key: "price_prime_essential", name: "Prime Essential",  icon: Crown,  description: "Plano intermediário com mais benefícios", color: "#059669", bg: "#ecfdf5" },
-  { key: "price_prime_elite",     name: "Prime Elite",      icon: Gem,    description: "Plano premium completo",               color: "#7c3aed", bg: "#faf5ff" },
+  { key: "preco_particular",      nome: "IRB Particular",   icon: Shield, description: "Atendimento particular sem plano",     color: "#2563eb", bg: "#eff6ff" },
+  { key: "preco_prime_plus",      nome: "Prime Plus",       icon: Star,   description: "Plano básico com descontos",           color: "#d97706", bg: "#fffbeb" },
+  { key: "preco_prime_essential", nome: "Prime Essential",  icon: Crown,  description: "Plano intermediário com mais benefícios", color: "#059669", bg: "#ecfdf5" },
+  { key: "preco_prime_elite",     nome: "Prime Elite",      icon: Gem,    description: "Plano premium completo",               color: "#7c3aed", bg: "#faf5ff" },
 ];
 
 export default function Planos() {
-  const [exams, setExams] = useState<Exam[]>([]);
+  const [exames, setExames] = useState<Exame[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
 
   useEffect(() => {
-    ExamAPI.list().then(data => { setExams(data); setLoading(false); });
+    ExameAPI.list().then(data => { setExames(data); setLoading(false); });
   }, []);
 
   const filtered = useMemo(() =>
-    exams.filter(e => e.name.toLowerCase().includes(search.toLowerCase())),
-    [exams, search]
+    exames.filter(e => e.nome.toLowerCase().includes(search.toLowerCase())),
+    [exames, search]
   );
 
   if (loading) {
@@ -61,7 +61,7 @@ export default function Planos() {
               }}
             >
               <Icon size={28} color={plan.color} style={{ marginBottom: 10 }} />
-              <div style={{ fontWeight: 600, fontSize: 14, color: "var(--foreground)" }}>{plan.name}</div>
+              <div style={{ fontWeight: 600, fontSize: 14, color: "var(--foreground)" }}>{plan.nome}</div>
               <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 4 }}>{plan.description}</div>
             </button>
           );
@@ -106,15 +106,15 @@ export default function Planos() {
                     background: selectedPlan === plan.key ? `${plan.color}0d` : "transparent",
                     transition: "all 0.15s",
                     minWidth: 130,
-                  }}>{plan.name}</th>
+                  }}>{plan.nome}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
                 <tr><td colSpan={5} style={{ textAlign: "center", padding: 48, color: "var(--muted)" }}>Nenhum exame encontrado</td></tr>
-              ) : filtered.map((exam, i) => (
-                <tr key={exam.id} style={{
+              ) : filtered.map((exame, i) => (
+                <tr key={exame.id} style={{
                   borderBottom: i < filtered.length - 1 ? "1px solid var(--border)" : "none",
                   transition: "background 0.1s",
                 }}
@@ -122,11 +122,11 @@ export default function Planos() {
                   onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = "transparent"}
                 >
                   <td style={{ padding: "14px 20px" }}>
-                    <div style={{ fontWeight: 500, fontSize: 13, color: "var(--foreground)" }}>{exam.name}</div>
-                    <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>{exam.category}</div>
+                    <div style={{ fontWeight: 500, fontSize: 13, color: "var(--foreground)" }}>{exame.nome}</div>
+                    <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>{exame.categoria}</div>
                   </td>
                   {plans.map(plan => {
-                    const price = exam[plan.key as keyof Exam] as number | null;
+                    const price = exame[plan.key as keyof Exame] as number | null;
                     const isSelected = selectedPlan === plan.key;
                     return (
                       <td key={plan.key} style={{

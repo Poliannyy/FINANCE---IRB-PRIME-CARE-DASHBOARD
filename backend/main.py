@@ -1,16 +1,23 @@
+import os
+from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.routers import exames, planos, campanhas, pacientes, dashboard
 
+load_dotenv()
+
 app = FastAPI(
     title="IRB Prime Care Finance API",
     description="API do sistema financeiro da clínica IRB Prime Care",
-    version="1.0.0"
+    version=os.getenv("APP_VERSION", "1.0.0")
 )
+
+# Configuração de CORS via variável de ambiente
+origins = os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
