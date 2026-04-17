@@ -1,50 +1,127 @@
-import { mockExames, mockCampanhas, mockPacientes } from "./mockData";
-import type { Exame, Campanha, Paciente } from "./mockData";
+const API_BASE_URL = "http://localhost:8000/api";
 
-let examesDB: Exame[] = [...mockExames];
-let campanhasDB: Campanha[] = [...mockCampanhas];
-let pacientesDB: Paciente[] = [...mockPacientes];
+async function fetchAPI(endpoint: string, options: RequestInit = {}) {
+  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ detail: "Erro desconhecido" }));
+    throw new Error(error.detail || "Erro na requisição");
+  }
+
+  if (response.status === 204) return null;
+  return response.json();
+}
 
 export const ExameAPI = {
-  async list(): Promise<Exame[]> {
-    return [...examesDB];
+  async list(busca?: string, categoria?: string) {
+    let url = "/exames/";
+    const params = new URLSearchParams();
+    if (busca) params.append("busca", busca);
+    if (categoria && categoria !== "Todos") params.append("categoria", categoria);
+    if (params.toString()) url += `?${params.toString()}`;
+
+    const data = await fetchAPI(url);
+    return data.map(transformExame);
   },
-  async create(data: Omit<Exame, "id">): Promise<Exame> {
-    const newExame: Exame = {
-      id: Math.max(0, ...examesDB.map(e => e.id)) + 1,
-      ...data,
-    };
-    examesDB.push(newExame);
-    return newExame;
+
+  async listCategorias() {
+    return fetchAPI("/exames/categorias");
+  },
+
+  async create(data: any) {
+    const res = await fetchAPI("/exames/", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+    return transformExame(res);
   },
 };
 
 export const CampanhaAPI = {
-  async list(): Promise<Campanha[]> {
-    return [...campanhasDB];
+  async list(status?: string) {
+    let url = "/campanhas/";
+    if (status && status !== "todas") url += `?status=${status}`;
+    return fetchAPI(url);
   },
-  async create(data: Omit<Campanha, "id" | "total_participantes" | "exames_incluidos">): Promise<Campanha> {
-    const newCampanha: Campanha = {
-      id: Math.max(0, ...campanhasDB.map(c => c.id)) + 1,
-      total_participantes: 0,
-      exames_incluidos: [],
-      ...data,
-    };
-    campanhasDB.push(newCampanha);
-    return newCampanha;
+
+  async create(data: any) {
+    return fetchAPI("/campanhas/", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
   },
 };
 
 export const PacienteAPI = {
-  async list(): Promise<Paciente[]> {
-    return [...pacientesDB];
+  async list(busca?: string, etapa?: string) {
+    let url = "/pacientes/";
+    const params = new URLSearchParams();
+    if (busca) params.append("busca", busca);
+    if (etapa && etapa !== "Todos") params.append("etapa", etapa);
+    if (params.toString()) url += `?${params.toString()}`;
+    return fetchAPI(url);
   },
-  async create(data: Omit<Paciente, "id">): Promise<Paciente> {
-    const newPaciente: Paciente = {
-      id: Math.max(0, ...pacientesDB.map(p => p.id)) + 1,
-      ...data,
-    };
-    pacientesDB.push(newPaciente);
-    return newPaciente;
+
+  async create(data: any) {
+    return fetchAPI("/pacientes/", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
   },
 };
+
+export const DashboardAPI = {
+  async getStats() {
+    return fetchAPI("/dashboard/");
+  },
+  async getRecentExams() {
+    return fetchAPI("/dashboard/exames-recentes");
+  },
+  async getActiveCampaigns() {
+    return fetchAPI("/dashboard/campanhas-ativas");
+  },
+};
+
+export const PlanosAPI = {
+  async list() {
+    return fetchAPI("/planos/");
+  },
+  async getTabela(busca?: string) {
+    let url = "/planos/tabela";
+    if (busca) url += `?busca=${busca}`;
+    return fetchAPI(url);
+  },
+};
+
+// Auxiliar para transformar o formato do back-end (lista de preços) para o formato plano do front-end
+function transformExame(ex: any) {
+  const precos: any = {
+    preco_particular: 0,
+    preco_prime_plus: 0,
+    preco_prime_essential: 0,
+    preco_prime_elite: 0,
+  };
+  ex.precos.forEach((p: any) => {
+    if (p.plano_id === 1) precos.preco_particular = Number(p.preco);
+    if (p.plano_id === 2) precos.preco_prime_plus = Number(p.preco);
+    if (p.plano_id === 3) precos.preco_prime_essential = Number(p.preco);
+    if (p.plano_id === 4) precos.preco_prime_elite = Number(p.preco);
+  });
+
+  return {
+    id: ex.id,
+    nome: ex.nome,
+    categoria: ex.categoria.nome,
+    categoria_id: ex.categoria_id,
+    descricao: ex.descricao,
+    tempo_resultado: ex.tempo_resultado,
+    preparo: ex.preparo,
+    ...precos,
+  };
+}

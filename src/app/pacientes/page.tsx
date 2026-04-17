@@ -1,10 +1,8 @@
 "use client";
-// Refreshed by Gemini to clear TS cache
 import { useState, useEffect, useMemo } from "react";
 import { Search, Plus, Users } from "lucide-react";
 import PacienteCard from "@/app/components/PacienteCard";
-import { PacienteAPI } from "@/lib/api";
-import type { Paciente } from "@/lib/mockData";
+import { PacienteAPI, PlanosAPI } from "@/lib/api";
 
 const journeyOptions = ["primeiro_contato", "avaliacao", "tratamento", "acompanhamento", "fidelizado"] as const;
 const journeyLabels: Record<string, string> = {
@@ -17,14 +15,16 @@ const journeyLabels: Record<string, string> = {
 const journeyTabs = ["Todos", ...journeyOptions];
 
 const emptyForm = {
-  nome: "", idade: "", telefone: "", email: "",
-  etapa_jornada: "primeiro_contato" as Paciente["etapa_jornada"],
+  nome: "", cpf: "", telefone: "", email: "",
+  plano_id: "1", // Padrão: IRB Particular
+  etapa_jornada: "primeiro_contato",
   observacoes: "",
   data_nascimento: "",
 };
 
 export default function Pacientes() {
-  const [pacientes, setPacientes] = useState<Paciente[]>([]);
+  const [pacientes, setPacientes] = useState<any[]>([]);
+  const [planos, setPlanos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [journeyFilter, setJourneyFilter] = useState("Todos");
@@ -32,12 +32,24 @@ export default function Pacientes() {
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => { loadPacientes(); }, []);
+  useEffect(() => { 
+    async function init() {
+      try {
+        const [p, pl] = await Promise.all([PacienteAPI.list(), PlanosAPI.list()]);
+        setPacientes(p);
+        setPlanos(pl);
+      } catch (error) {
+        console.error("Erro ao carregar pacientes:", error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    init();
+  }, []);
 
   async function loadPacientes() {
     const data = await PacienteAPI.list();
     setPacientes(data);
-    setLoading(false);
   }
 
   const filtered = useMemo(() => pacientes.filter(p => {
@@ -47,21 +59,30 @@ export default function Pacientes() {
   }), [pacientes, search, journeyFilter]);
 
   async function handleCreate() {
-    if (!form.nome) return;
+    if (!form.nome || !form.data_nascimento || !form.cpf) {
+      alert("Por favor, preencha os campos obrigatórios (Nome, Data Nasc. e CPF)");
+      return;
+    }
     setSaving(true);
-    await PacienteAPI.create({
-      nome: form.nome,
-      idade: form.idade ? parseInt(form.idade) : 0,
-      telefone: form.telefone,
-      email: form.email,
-      etapa_jornada: form.etapa_jornada,
-      observacoes: form.observacoes,
-      data_nascimento: form.data_nascimento || new Date().toISOString().split("T")[0],
-    });
-    setDialogOpen(false);
-    setForm(emptyForm);
-    setSaving(false);
-    loadPacientes();
+    try {
+      await PacienteAPI.create({
+        nome: form.nome,
+        data_nascimento: form.data_nascimento,
+        cpf: form.cpf,
+        telefone: form.telefone || "Não informado",
+        email: form.email || "Não informado",
+        plano_id: parseInt(form.plano_id),
+        etapa_jornada: form.etapa_jornada,
+        observacoes: form.observacoes || "Sem observações",
+      });
+      setDialogOpen(false);
+      setForm(emptyForm);
+      loadPacientes();
+    } catch (error: any) {
+      alert(error.message);
+    } finally {
+      setSaving(false);
+    }
   }
 
   if (loading) {
@@ -144,26 +165,35 @@ export default function Pacientes() {
           }}>
             <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 24 }}>Cadastrar Paciente</h2>
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-              <Field label="Nome">
+              <Field label="Nome Completo *">
                 <input value={form.nome} onChange={e => setForm({...form, nome: e.target.value})} style={inputStyle} />
               </Field>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                <Field label="Idade"><input type="number" value={form.idade} onChange={e => setForm({...form, idade: e.target.value})} style={inputStyle} /></Field>
-                <Field label="Telefone"><input value={form.telefone} onChange={e => setForm({...form, telefone: e.target.value})} style={inputStyle} /></Field>
+                <Field label="Data de Nascimento *"><input type="date" value={form.data_nascimento} onChange={e => setForm({...form, data_nascimento: e.target.value})} style={inputStyle} /></Field>
+                <Field label="CPF *"><input placeholder="000.000.000-00" value={form.cpf} onChange={e => setForm({...form, cpf: e.target.value})} style={inputStyle} /></Field>
               </div>
-              <Field label="E-mail"><input value={form.email} onChange={e => setForm({...form, email: e.target.value})} style={inputStyle} /></Field>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                <Field label="Data de Nascimento"><input type="date" value={form.data_nascimento} onChange={e => setForm({...form, data_nascimento: e.target.value})} style={inputStyle} /></Field>
-                <Field label="Etapa da Jornada">
-                  <select value={form.etapa_jornada} onChange={e => setForm({...form, etapa_jornada: e.target.value as Paciente["etapa_jornada"]})} style={inputStyle}>
+                <Field label="Telefone"><input placeholder="(00) 00000-0000" value={form.telefone} onChange={e => setForm({...form, telefone: e.target.value})} style={inputStyle} /></Field>
+                <Field label="E-mail"><input placeholder="email@exemplo.com" value={form.email} onChange={e => setForm({...form, email: e.target.value})} style={inputStyle} /></Field>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <Field label="Plano de Saúde *">
+                  <select value={form.plano_id} onChange={e => setForm({...form, plano_id: e.target.value})} style={inputStyle}>
+                    {planos.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
+                  </select>
+                </Field>
+                <Field label="Etapa da Jornada *">
+                  <select value={form.etapa_jornada} onChange={e => setForm({...form, etapa_jornada: e.target.value})} style={inputStyle}>
                     {journeyOptions.map(j => <option key={j} value={j}>{journeyLabels[j]}</option>)}
                   </select>
                 </Field>
               </div>
-              <Field label="Observações"><input value={form.observacoes} onChange={e => setForm({...form, observacoes: e.target.value})} style={inputStyle} /></Field>
+              <Field label="Observações">
+                <input placeholder="Ex: Histórico de alergias..." value={form.observacoes} onChange={e => setForm({...form, observacoes: e.target.value})} style={inputStyle} />
+              </Field>
               <div style={{ display: "flex", gap: 10, marginTop: 8 }}>
                 <button onClick={() => setDialogOpen(false)} style={{ ...btnSecondary, flex: 1 }}>Cancelar</button>
-                <button onClick={handleCreate} disabled={!form.nome || saving} style={{ ...btnPrimary, flex: 1, opacity: !form.nome ? 0.5 : 1 }}>
+                <button onClick={handleCreate} disabled={saving} style={{ ...btnPrimary, flex: 1 }}>
                   {saving ? "Salvando..." : "Cadastrar Paciente"}
                 </button>
               </div>

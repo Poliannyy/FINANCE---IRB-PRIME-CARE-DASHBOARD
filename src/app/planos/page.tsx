@@ -2,7 +2,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { Search, Shield, Star, Crown, Gem } from "lucide-react";
 import { ExameAPI } from "@/lib/api";
-import type { Exame } from "@/lib/mockData";
 
 const plans = [
   { key: "preco_particular",      nome: "IRB Particular",   icon: Shield, description: "Atendimento particular sem plano",     color: "#2563eb", bg: "#eff6ff" },
@@ -12,13 +11,23 @@ const plans = [
 ];
 
 export default function Planos() {
-  const [exames, setExames] = useState<Exame[]>([]);
+  const [exames, setExames] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
 
   useEffect(() => {
-    ExameAPI.list().then(data => { setExames(data); setLoading(false); });
+    async function load() {
+      try {
+        const data = await ExameAPI.list();
+        setExames(data);
+      } catch (error) {
+        console.error("Erro ao carregar exames:", error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
   }, []);
 
   const filtered = useMemo(() =>
@@ -126,7 +135,7 @@ export default function Planos() {
                     <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>{exame.categoria}</div>
                   </td>
                   {plans.map(plan => {
-                    const price = exame[plan.key as keyof Exame] as number | null;
+                    const price = exame[plan.key];
                     const isSelected = selectedPlan === plan.key;
                     return (
                       <td key={plan.key} style={{
@@ -136,7 +145,7 @@ export default function Planos() {
                         background: isSelected ? `${plan.color}0d` : "transparent",
                         transition: "all 0.15s",
                       }}>
-                        {price != null ? `R$ ${price.toFixed(2)}` : <span style={{ color: "var(--border)" }}>—</span>}
+                        {price != null ? `R$ ${Number(price).toFixed(2)}` : <span style={{ color: "var(--border)" }}>—</span>}
                       </td>
                     );
                   })}

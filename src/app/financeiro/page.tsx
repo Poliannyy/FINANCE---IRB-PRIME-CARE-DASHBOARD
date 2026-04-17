@@ -3,52 +3,75 @@ import { useState, useEffect, useMemo } from "react";
 import { Search, Plus, DollarSign, ChevronDown } from "lucide-react";
 import ExameCard from "@/app/components/ExameCard";
 import { ExameAPI } from "@/lib/api";
-import type { Exame } from "@/lib/mockData";
-
-const categories = ["Todos","Laboratorial","Imagem","Cardiologia","Oftalmologia","Ortopedia","Dermatologia","Ginecologia","Urologia","Outros"];
 
 const emptyForm = {
-  nome: "", categoria: "Laboratorial", descricao: "",
+  nome: "", categoria_id: "", descricao: "",
+  tempo_resultado: "", preparo: "",
   preco_particular: "", preco_prime_plus: "", preco_prime_essential: "", preco_prime_elite: "",
 };
 
 export default function Financeiro() {
-  const [exames, setExames] = useState<Exame[]>([]);
+  const [exames, setExames] = useState<any[]>([]);
+  const [categorias, setCategorias] = useState<any[]>([]);
   const [search, setSearch] = useState("");
-  const [category, setCategory] = useState("Todos");
+  const [categoryFilter, setCategoryFilter] = useState("Todos");
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => { loadExames(); }, []);
+  useEffect(() => { 
+    async function init() {
+      try {
+        const [ex, cat] = await Promise.all([ExameAPI.list(), ExameAPI.listCategorias()]);
+        setExames(ex);
+        setCategorias(cat);
+      } catch (error) {
+        console.error("Erro ao carregar dados:", error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    init();
+  }, []);
 
   async function loadExames() {
     const data = await ExameAPI.list();
     setExames(data);
-    setLoading(false);
   }
 
   const filtered = useMemo(() => exames.filter(e => {
     const matchSearch = e.nome.toLowerCase().includes(search.toLowerCase());
-    const matchCat = category === "Todos" || e.categoria === category;
+    const matchCat = categoryFilter === "Todos" || e.categoria === categoryFilter;
     return matchSearch && matchCat;
-  }), [exames, search, category]);
+  }), [exames, search, categoryFilter]);
 
   async function handleCreate() {
-    if (!form.nome || !form.preco_particular) return;
+    if (!form.nome || !form.categoria_id || !form.preco_particular) {
+      alert("Por favor, preencha os campos obrigatórios (Nome, Categoria e Preço Particular)");
+      return;
+    }
     setSaving(true);
-    await ExameAPI.create({
-      nome: form.nome, categoria: form.categoria, descricao: form.descricao,
-      preco_particular: parseFloat(form.preco_particular) || 0,
-      preco_prime_plus: form.preco_prime_plus ? parseFloat(form.preco_prime_plus) : null,
-      preco_prime_essential: form.preco_prime_essential ? parseFloat(form.preco_prime_essential) : null,
-      preco_prime_elite: form.preco_prime_elite ? parseFloat(form.preco_prime_elite) : null,
-    });
-    setDialogOpen(false);
-    setForm(emptyForm);
-    setSaving(false);
-    loadExames();
+    try {
+      await ExameAPI.create({
+        nome: form.nome,
+        categoria_id: parseInt(form.categoria_id),
+        descricao: form.descricao || "Sem descrição",
+        tempo_resultado: form.tempo_resultado || "Não informado",
+        preparo: form.preparo || "Sem preparo especial",
+        preco_particular: parseFloat(form.preco_particular) || 0,
+        preco_prime_plus: parseFloat(form.preco_prime_plus) || 0,
+        preco_prime_essential: parseFloat(form.preco_prime_essential) || 0,
+        preco_prime_elite: parseFloat(form.preco_prime_elite) || 0,
+      });
+      setDialogOpen(false);
+      setForm(emptyForm);
+      loadExames();
+    } catch (error: any) {
+      alert(error.message);
+    } finally {
+      setSaving(false);
+    }
   }
 
   if (loading) {
@@ -98,8 +121,8 @@ export default function Financeiro() {
         </div>
         <div style={{ position: "relative" }}>
           <select
-            value={category}
-            onChange={e => setCategory(e.target.value)}
+            value={categoryFilter}
+            onChange={e => setCategoryFilter(e.target.value)}
             style={{
               padding: "10px 36px 10px 14px",
               borderRadius: "var(--radius-sm)",
@@ -109,7 +132,8 @@ export default function Financeiro() {
               appearance: "none", outline: "none",
             }}
           >
-            {categories.map(c => <option key={c} value={c}>{c}</option>)}
+            <option value="Todos">Todas Categorias</option>
+            {categorias.map(c => <option key={c.id} value={c.nome}>{c.nome}</option>)}
           </select>
           <ChevronDown size={14} style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", color: "var(--muted)", pointerEvents: "none" }} />
         </div>
@@ -145,31 +169,43 @@ export default function Financeiro() {
           <div style={{
             background: "var(--card)",
             borderRadius: "var(--radius-lg)",
-            padding: 28, width: "100%", maxWidth: 520,
+            padding: 28, width: "100%", maxWidth: 600,
             boxShadow: "0 20px 60px rgba(0,0,0,0.15)",
+            maxHeight: "90vh", overflowY: "auto"
           }}>
             <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 24 }}>Cadastrar Novo Exame</h2>
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-              <Field label="Nome do Exame">
-                <input placeholder="Ex: Hemograma Completo" value={form.nome} onChange={e => setForm({...form, nome: e.target.value})} style={inputStyle} />
-              </Field>
-              <Field label="Categoria">
-                <select value={form.categoria} onChange={e => setForm({...form, categoria: e.target.value})} style={inputStyle}>
-                  {categories.filter(c => c !== "Todos").map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
-              </Field>
-              <Field label="Descrição (opcional)">
-                <input value={form.descricao} onChange={e => setForm({...form, descricao: e.target.value})} style={inputStyle} />
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <Field label="Nome do Exame *">
+                  <input placeholder="Ex: Hemograma" value={form.nome} onChange={e => setForm({...form, nome: e.target.value})} style={inputStyle} />
+                </Field>
+                <Field label="Categoria *">
+                  <select value={form.categoria_id} onChange={e => setForm({...form, categoria_id: e.target.value})} style={inputStyle}>
+                    <option value="">Selecione...</option>
+                    {categorias.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+                  </select>
+                </Field>
+              </div>
+              <Field label="Descrição">
+                <input placeholder="Breve descrição do exame" value={form.descricao} onChange={e => setForm({...form, descricao: e.target.value})} style={inputStyle} />
               </Field>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                <Field label="IRB Particular (R$)"><input type="number" value={form.preco_particular} onChange={e => setForm({...form, preco_particular: e.target.value})} style={inputStyle} /></Field>
+                <Field label="Tempo de Resultado">
+                  <input placeholder="Ex: 24 horas" value={form.tempo_resultado} onChange={e => setForm({...form, tempo_resultado: e.target.value})} style={inputStyle} />
+                </Field>
+                <Field label="Preparo">
+                  <input placeholder="Ex: Jejum de 8h" value={form.preparo} onChange={e => setForm({...form, preparo: e.target.value})} style={inputStyle} />
+                </Field>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, padding: "12px", background: "var(--muted-bg)", borderRadius: "var(--radius-sm)" }}>
+                <Field label="IRB Particular (R$) *"><input type="number" value={form.preco_particular} onChange={e => setForm({...form, preco_particular: e.target.value})} style={inputStyle} /></Field>
                 <Field label="Prime Plus (R$)"><input type="number" value={form.preco_prime_plus} onChange={e => setForm({...form, preco_prime_plus: e.target.value})} style={inputStyle} /></Field>
                 <Field label="Prime Essential (R$)"><input type="number" value={form.preco_prime_essential} onChange={e => setForm({...form, preco_prime_essential: e.target.value})} style={inputStyle} /></Field>
                 <Field label="Prime Elite (R$)"><input type="number" value={form.preco_prime_elite} onChange={e => setForm({...form, preco_prime_elite: e.target.value})} style={inputStyle} /></Field>
               </div>
               <div style={{ display: "flex", gap: 10, marginTop: 8 }}>
                 <button onClick={() => setDialogOpen(false)} style={{ ...btnSecondary, flex: 1 }}>Cancelar</button>
-                <button onClick={handleCreate} disabled={!form.nome || !form.preco_particular || saving} style={{ ...btnPrimary, flex: 1, opacity: (!form.nome || !form.preco_particular) ? 0.5 : 1 }}>
+                <button onClick={handleCreate} disabled={saving} style={{ ...btnPrimary, flex: 1 }}>
                   {saving ? "Salvando..." : "Cadastrar Exame"}
                 </button>
               </div>

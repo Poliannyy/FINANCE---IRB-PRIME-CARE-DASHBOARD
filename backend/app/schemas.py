@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional, List
+from typing import List
 from datetime import date, datetime
 from decimal import Decimal
 from enum import Enum
@@ -18,7 +18,7 @@ class EtapaJornada(str, Enum):
 
 class CategoriaBase(BaseModel):
     nome: str
-    descricao: Optional[str] = None
+    descricao: str
 
 class CategoriaOut(CategoriaBase):
     id: int
@@ -28,8 +28,8 @@ class CategoriaOut(CategoriaBase):
 class PlanoBase(BaseModel):
     nome: str
     slug: str
-    descricao: Optional[str] = None
-    icone: Optional[str] = None
+    descricao: str
+    icone: str
 
 class PlanoOut(PlanoBase):
     id: int
@@ -46,81 +46,86 @@ class PrecoOut(BaseModel):
 class ExameBase(BaseModel):
     nome: str
     categoria_id: int
-    descricao: Optional[str] = None
-    tempo_resultado: Optional[str] = None
-    preparo: Optional[str] = None
+    descricao: str
+    tempo_resultado: str
+    preparo: str
 
 class ExameCreate(ExameBase):
-    pass
+    preco_particular: Decimal
+    preco_prime_plus: Decimal
+    preco_prime_essential: Decimal
+    preco_prime_elite: Decimal
 
 class ExameUpdate(BaseModel):
-    nome: Optional[str] = None
-    descricao: Optional[str] = None
-    tempo_resultado: Optional[str] = None
-    preparo: Optional[str] = None
-    ativo: Optional[bool] = None
+    nome: str
+    descricao: str
+    tempo_resultado: str
+    preparo: str
+    ativo: bool
 
 class ExameOut(ExameBase):
     id: int
     ativo: bool
     categoria: CategoriaOut
-    precos: List[PrecoOut] = []
-    preco_minimo: Optional[Decimal] = None
+    precos: List[PrecoOut]
+    preco_minimo: Decimal
     class Config:
         from_attributes = True
 
 class CampanhaBase(BaseModel):
     nome: str
-    descricao: Optional[str] = None
+    descricao: str
     desconto_percentual: Decimal
     data_inicio: date
     data_fim: date
-    status: StatusCampanha = StatusCampanha.ativa
+    status: StatusCampanha
 
 class CampanhaCreate(CampanhaBase):
-    exame_ids: List[int] = []
+    exame_ids: List[int]
 
 class CampanhaUpdate(BaseModel):
-    nome: Optional[str] = None
-    descricao: Optional[str] = None
-    desconto_percentual: Optional[Decimal] = None
-    data_inicio: Optional[date] = None
-    data_fim: Optional[date] = None
-    status: Optional[StatusCampanha] = None
+    nome: str
+    descricao: str
+    desconto_percentual: Decimal
+    data_inicio: date
+    data_fim: date
+    status: StatusCampanha
 
 class CampanhaOut(CampanhaBase):
     id: int
-    total_participantes: int = 0
-    exames_incluidos: List[str] = []
+    total_participantes: int
+    exames_incluidos: List[str]
     class Config:
         from_attributes = True
 
 class PacienteBase(BaseModel):
     nome: str
     data_nascimento: date
-    cpf: Optional[str] = None
-    telefone: Optional[str] = None
-    email: Optional[str] = None
-    plano_id: Optional[int] = None
-    etapa_jornada: EtapaJornada = EtapaJornada.primeiro_contato
-    observacoes: Optional[str] = None
+    cpf: str
+    telefone: str
+    email: str
+    plano_id: int
+    etapa_jornada: EtapaJornada
+    observacoes: str
 
 class PacienteCreate(PacienteBase):
     pass
 
 class PacienteUpdate(BaseModel):
-    nome: Optional[str] = None
-    telefone: Optional[str] = None
-    email: Optional[str] = None
-    plano_id: Optional[int] = None
-    etapa_jornada: Optional[EtapaJornada] = None
-    observacoes: Optional[str] = None
+    nome: str
+    data_nascimento: date
+    cpf: str
+    telefone: str
+    email: str
+    plano_id: int
+    etapa_jornada: EtapaJornada
+    observacoes: str
 
 class PacienteOut(PacienteBase):
     id: int
     ativo: bool
-    plano: Optional[PlanoOut] = None
-    idade: Optional[int] = None
+    plano: PlanoOut
+    idade: int
     class Config:
         from_attributes = True
 

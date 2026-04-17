@@ -6,6 +6,10 @@ from app import models, schemas
 
 router = APIRouter()
 
+@router.get("/categorias", response_model=List[schemas.CategoriaOut])
+def listar_categorias(db: Session = Depends(get_db)):
+    return db.query(models.Categoria).all()
+
 @router.get("/", response_model=List[schemas.ExameOut])
 def listar_exames(
     busca: Optional[str] = Query(None),
@@ -27,7 +31,10 @@ def listar_exames(
                 preco=p.preco
             ) for p in exame.precos if p.ativo
         ]
-        preco_min = min([p.preco for p in exame.precos if p.ativo], default=None)
+        # Preço mínimo considerando apenas os preços ativos
+        ativos = [p.preco for p in exame.precos if p.ativo]
+        preco_min = min(ativos) if ativos else 0
+        
         resultado.append(schemas.ExameOut(
             id=exame.id,
             nome=exame.nome,
@@ -54,7 +61,9 @@ def buscar_exame(exame_id: int, db: Session = Depends(get_db)):
         schemas.PrecoOut(plano_id=p.plano_id, plano_nome=p.plano.nome, preco=p.preco)
         for p in exame.precos if p.ativo
     ]
-    preco_min = min([p.preco for p in exame.precos if p.ativo], default=None)
+    ativos = [p.preco for p in exame.precos if p.ativo]
+    preco_min = min(ativos) if ativos else 0
+    
     return schemas.ExameOut(
         id=exame.id, nome=exame.nome, categoria_id=exame.categoria_id,
         descricao=exame.descricao, tempo_resultado=exame.tempo_resultado,
@@ -64,15 +73,48 @@ def buscar_exame(exame_id: int, db: Session = Depends(get_db)):
 
 @router.post("/", response_model=schemas.ExameOut, status_code=201)
 def criar_exame(exame_in: schemas.ExameCreate, db: Session = Depends(get_db)):
-    exame = models.Exame(**exame_in.model_dump())
+    # 1. Criar o Exame
+    exame_data = exame_in.model_dump(exclude={
+        "preco_particular", "preco_prime_plus", "preco_prime_essential", "preco_prime_elite"
+    })
+    exame = models.Exame(**exame_data)
     db.add(exame)
     db.commit()
     db.refresh(exame)
+
+    # 2. Criar os Preços (Mapeamento manual baseado no schema.sql)
+    # IDs: 1=Particular, 2=Plus, 3=Essential, 4=Elite
+    precos_map = [
+        (1, exame_in.preco_particular),
+        (2, exame_in.preco_prime_plus),
+        (3, exame_in.preco_prime_essential),
+        (4, exame_in.preco_prime_elite)
+    ]
+
+    for plano_id, valor in precos_map:
+        preco_obj = models.Preco(
+            exame_id=exame.id,
+            plano_id=plano_id,
+            preco=valor,
+            ativo=True
+        )
+        db.add(preco_obj)
+    
+    db.commit()
+    db.refresh(exame)
+
+    precos_list = [
+        schemas.PrecoOut(plano_id=p.plano_id, plano_nome=p.plano.nome, preco=p.preco)
+        for p in exame.precos
+    ]
+    ativos = [p.preco for p in exame.precos]
+    preco_min = min(ativos) if ativos else 0
+
     return schemas.ExameOut(
         id=exame.id, nome=exame.nome, categoria_id=exame.categoria_id,
         descricao=exame.descricao, tempo_resultado=exame.tempo_resultado,
         preparo=exame.preparo, ativo=exame.ativo, categoria=exame.categoria,
-        precos=[], preco_minimo=None
+        precos=precos_list, preco_minimo=preco_min
     )
 
 @router.put("/{exame_id}", response_model=schemas.ExameOut)
@@ -80,7 +122,7 @@ def atualizar_exame(exame_id: int, exame_in: schemas.ExameUpdate, db: Session = 
     exame = db.query(models.Exame).filter(models.Exame.id == exame_id).first()
     if not exame:
         raise HTTPException(status_code=404, detail="Exame não encontrado")
-    for campo, valor in exame_in.model_dump(exclude_unset=True).items():
+    for campo, valor in exame_in.model_dump().items():
         setattr(exame, campo, valor)
     db.commit()
     db.refresh(exame)
@@ -88,7 +130,9 @@ def atualizar_exame(exame_id: int, exame_in: schemas.ExameUpdate, db: Session = 
         schemas.PrecoOut(plano_id=p.plano_id, plano_nome=p.plano.nome, preco=p.preco)
         for p in exame.precos if p.ativo
     ]
-    preco_min = min([p.preco for p in exame.precos if p.ativo], default=None)
+    ativos = [p.preco for p in exame.precos if p.ativo]
+    preco_min = min(ativos) if ativos else 0
+    
     return schemas.ExameOut(
         id=exame.id, nome=exame.nome, categoria_id=exame.categoria_id,
         descricao=exame.descricao, tempo_resultado=exame.tempo_resultado,
