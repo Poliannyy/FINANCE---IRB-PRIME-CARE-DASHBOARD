@@ -61,7 +61,7 @@ export default function Campanhas() {
   }
 
   return (
-    <div style={{ maxWidth: 1000 }} className="animate-fade-in">
+    <div style={{ width: "100%" }} className="animate-fade-in">
       {/* Header */}
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 28, gap: 16, flexWrap: "wrap" }}>
         <div>
@@ -106,7 +106,7 @@ export default function Campanhas() {
           <p style={{ color: "var(--muted)" }}>Nenhuma campanha encontrada</p>
         </div>
       ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(420px, 1fr))", gap: 16 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 16 }}>
           {filtered.map(c => <CampanhaCard key={c.id} campanha={c} />)}
         </div>
       )}
