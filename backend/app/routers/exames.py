@@ -31,7 +31,6 @@ def listar_exames(
                 preco=p.preco
             ) for p in exame.precos if p.ativo
         ]
-        # Preço mínimo considerando apenas os preços ativos
         ativos = [p.preco for p in exame.precos if p.ativo]
         preco_min = min(ativos) if ativos else 0
         
@@ -73,7 +72,6 @@ def buscar_exame(exame_id: int, db: Session = Depends(get_db)):
 
 @router.post("/", response_model=schemas.ExameOut, status_code=201)
 def criar_exame(exame_in: schemas.ExameCreate, db: Session = Depends(get_db)):
-    # 1. Criar o Exame
     exame_data = exame_in.model_dump(exclude={
         "preco_particular", "preco_prime_plus", "preco_prime_essential", "preco_prime_elite"
     })
@@ -82,8 +80,6 @@ def criar_exame(exame_in: schemas.ExameCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(exame)
 
-    # 2. Criar os Preços (Mapeamento manual baseado no schema.sql)
-    # IDs: 1=Particular, 2=Plus, 3=Essential, 4=Elite
     precos_map = [
         (1, exame_in.preco_particular),
         (2, exame_in.preco_prime_plus),
@@ -142,8 +138,18 @@ def atualizar_exame(exame_id: int, exame_in: schemas.ExameUpdate, db: Session = 
 
 @router.delete("/{exame_id}", status_code=204)
 def deletar_exame(exame_id: int, db: Session = Depends(get_db)):
+    print(f"DEBUG: Tentando deletar fisicamente o exame {exame_id}")
+    # Busca inclusive desativados para poder limpar o lixo do banco
     exame = db.query(models.Exame).filter(models.Exame.id == exame_id).first()
+
     if not exame:
         raise HTTPException(status_code=404, detail="Exame não encontrado")
-    exame.ativo = False
+
+    # 1. Deletar vínculos
+    db.query(models.Preco).filter(models.Preco.exame_id == exame_id).delete()
+    db.query(models.CampanhaExame).filter(models.CampanhaExame.exame_id == exame_id).delete()
+
+    # 2. Remover permanentemente
+    db.delete(exame)
     db.commit()
+    return None
